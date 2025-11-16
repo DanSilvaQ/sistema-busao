@@ -3,30 +3,28 @@ package com.empresa.transportebusao;
 import java.time.LocalDateTime;
 import java.util.Map;
 
-
-// Garanta que o Link esteja importado
 import com.empresa.transportebusao.Link;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
-
+@Schema(name = "ViagemRepresentation", description = "Representação da Viagem com HATEOAS e versão da API")
 public class ViagemRepresentation {
 
     public Long id;
-
-    // Representação do relacionamento
     public Long motoristaId;
     public String motoristaNome;
-
     public String origem;
     public String destino;
     public LocalDateTime dataPartida;
     public StatusViagem status;
 
-    // CAMPO HATEOAS
+    // NOVO: informações extras
+    public String apiVersion;
+    public String idempotencyKey;
+
     public Map<String, Link> _links;
 
     private ViagemRepresentation() {}
 
-    // Método de fábrica simples (sem links)
     public static ViagemRepresentation from(Viagem viagem) {
         ViagemRepresentation rep = new ViagemRepresentation();
         rep.id = viagem.id;
@@ -41,23 +39,21 @@ public class ViagemRepresentation {
         rep.dataPartida = viagem.dataPartida;
         rep.status = viagem.status;
 
+        rep.apiVersion = viagem.apiVersion;
+        rep.idempotencyKey = viagem.idempotencyKey;
         return rep;
     }
 
-    // Método que garante o HATEOAS
     public static ViagemRepresentation fromWithLinks(Viagem viagem) {
         ViagemRepresentation rep = from(viagem);
-
-        // A Viagem precisa de um ID para gerar links, então verificamos
         if (viagem.id != null) {
-            String uri = "/viagens/" + viagem.id;
+            String uri = "/api/" + viagem.apiVersion + "/viagens/" + viagem.id;
             rep._links = Map.of(
                     "self", new Link(uri, "GET"),
                     "update", new Link(uri, "PUT"),
                     "delete", new Link(uri, "DELETE")
             );
         }
-
         return rep;
     }
 }

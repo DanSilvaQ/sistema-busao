@@ -1,30 +1,43 @@
 package com.empresa.transportebusao;
 
+import java.util.Map;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
+@Schema(name = "OnibusRepresentation", description = "Representação de Ônibus com HATEOAS e versão da API")
 public class OnibusRepresentation {
 
-    @Schema(example = "1")
     public Long id;
-
-    @Schema(example = "ABC-1234")
+    public String modelo;
     public String placa;
+    public Integer capacidade;
 
-    @Schema(example = "2020")
-    public int anoFabricacao;
+    // 🔹 Novos campos
+    public String idempotencyKey;
+    public String apiVersion;
 
-    @Schema(example = "50")
-    public int capacidadePassageiros;
+    public Map<String, Link> _links;
 
-    private OnibusRepresentation() {}
-
-    // Método estático de fábrica para converter a Entidade em Representação
-    public static OnibusRepresentation from(Onibus onibus) {
+    public static OnibusRepresentation from(Onibus o) {
         OnibusRepresentation rep = new OnibusRepresentation();
-        rep.id = onibus.id;
-        rep.placa = onibus.placa;
-        rep.anoFabricacao = onibus.anoFabricacao;
-        rep.capacidadePassageiros = onibus.capacidadePassageiros;
+        rep.id = o.id;
+        rep.modelo = o.modelo;
+        rep.placa = o.placa;
+        rep.capacidade = o.capacidade;
+        rep.apiVersion = o.apiVersion;
+        rep.idempotencyKey = o.idempotencyKey;
+        return rep;
+    }
+
+    public static OnibusRepresentation fromWithLinks(Onibus o) {
+        OnibusRepresentation rep = from(o);
+        if (o.id != null) {
+            String base = "/api/" + o.apiVersion + "/onibus/" + o.id;
+            rep._links = Map.of(
+                    "self", new Link(base, "GET"),
+                    "update", new Link(base, "PUT"),
+                    "delete", new Link(base, "DELETE")
+            );
+        }
         return rep;
     }
 }

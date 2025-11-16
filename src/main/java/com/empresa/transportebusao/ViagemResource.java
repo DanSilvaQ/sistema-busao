@@ -13,22 +13,23 @@ import java.util.stream.Collectors;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 @Tag(name = "Viagens")
-@Path("/viagens")
+@Path("/api/v1/viagens")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-
 public class ViagemResource {
 
-    // 1. LISTAR TODOS (GET /viagens) - Com correção de tipagem
+    // === 4.3 Rate Limiting será aplicado por filtro global (não aqui diretamente) ===
+    // === 4.1 Idempotência também é gerenciada por filtro global ===
+
+    // 1. LISTAR TODOS
     @GET
     public List<ViagemRepresentation> listAll() {
-        // CORREÇÃO: Força o Panache a retornar List<Viagem> antes do stream()
         return Viagem.<Viagem>listAll().stream()
                 .map(ViagemRepresentation::fromWithLinks)
                 .collect(Collectors.toList());
     }
 
-    // 2. BUSCAR POR ID (GET /viagens/{id})
+    // 2. BUSCAR POR ID
     @GET
     @Path("/{id}")
     public Response findById(@PathParam("id") Long id) {
@@ -39,17 +40,23 @@ public class ViagemResource {
         return Response.ok(ViagemRepresentation.fromWithLinks(viagem)).build();
     }
 
-    // 3. CRIAR (POST /viagens)
+    // 3. CRIAR (com Idempotency-Key)
     @POST
     @Transactional
-    public Response create(@Valid Viagem viagem) {
+    public Response create(@Valid Viagem viagem, @HeaderParam("Idempotency-Key") String idempotencyKey,
+                           @HeaderParam("X-API-Version") @DefaultValue("v1") String apiVersion) {
+
+        // Preenche campos novos
+        viagem.idempotencyKey = idempotencyKey;
+        viagem.apiVersion = apiVersion;
+
         viagem.persist();
         return Response.status(Response.Status.CREATED)
                 .entity(ViagemRepresentation.fromWithLinks(viagem))
                 .build();
     }
 
-    // 4. ATUALIZAR (PUT /viagens/{id}) - APENAS CAMPOS EXISTENTES
+    // 4. ATUALIZAR
     @PUT
     @Path("/{id}")
     @Transactional
@@ -59,30 +66,21 @@ public class ViagemResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        // Atualiza APENAS os campos presentes na entidade simplificada
         viagem.motorista = dadosAtualizados.motorista;
         viagem.origem = dadosAtualizados.origem;
         viagem.destino = dadosAtualizados.destino;
         viagem.dataPartida = dadosAtualizados.dataPartida;
         viagem.status = dadosAtualizados.status;
 
-        // Garante que não há referência a onibus ou rotas aqui.
-
         return Response.ok(ViagemRepresentation.fromWithLinks(viagem)).build();
     }
 
-    // 5. DELETAR (DELETE /viagens/{id})
+    // 5. DELETAR
     @DELETE
     @Path("/{id}")
     @Transactional
     public Response delete(@PathParam("id") Long id) {
         boolean deleted = Viagem.deleteById(id);
-        if (deleted) {
-            return Response.noContent().build();
-        } else {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
+        return deleted ? Response.noContent().build() : Response.status(Response.Status.NOT_FOUND).build();
     }
-
-    // O endpoint de BUSCA AVANÇADA (/search) FOI REMOVIDO PARA SIMPLICIDADE.
 }
