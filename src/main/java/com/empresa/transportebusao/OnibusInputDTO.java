@@ -19,6 +19,14 @@ public class OnibusInputDTO {
     @Pattern(regexp = "[A-Z]{3}[0-9A-Z]{4}", message = "A placa deve seguir o padrão (ex: AAA1B23).")
     public String placa;
 
+
+    // Dentro de OnibusInputDTO.java
+
+    // ... outros campos ...
+    @NotBlank(message = "O tipo de ônibus (Comum/Articulado) é obrigatório.")
+    @Pattern(regexp = "Comum|Articulado", message = "O tipo do ônibus deve ser 'Comum' ou 'Articulado'.")
+    public String tipoOnibus;
+
     // 5. Validação: Garante que a capacidade é informada e está dentro dos limites físicos
     @NotNull(message = "A capacidade do ônibus deve ser informada.")
     @Min(value = 10, message = "A capacidade mínima deve ser 10 passageiros.")

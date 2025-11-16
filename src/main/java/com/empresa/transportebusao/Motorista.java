@@ -27,6 +27,14 @@ public class Motorista extends PanacheEntity {
     @Pattern(regexp = "\\d{11}", message = "O CPF deve ter exatamente 11 dígitos numéricos.")
     public String cpf;
 
+    // Dentro da classe Motorista...
+    // 5. Validações: Tipo de ônibus que o motorista pode dirigir
+    @NotBlank(message = "O tipo de ônibus que o motorista pode dirigir (Comum/Articulado) é obrigatório.")
+    @Pattern(regexp = "Comum|Articulado", message = "O tipo de habilitação deve ser 'Comum' ou 'Articulado'.")
+    public String tipoHabilitacaoOnibus;
+
+// ... (Resto da classe Motorista)
+
     // 4.1. Idempotência (Campo para simulação de verificação via DB)
     @Column(unique = true)
     public String idempotencyKey;

@@ -20,4 +20,9 @@ public class MotoristaInputDTO {
     @NotBlank(message = "O CPF é obrigatório.")
     @Pattern(regexp = "\\d{11}", message = "O CPF deve ter exatamente 11 dígitos numéricos.")
     public String cpf;
+
+    @NotBlank(message = "O tipo de ônibus que o motorista pode dirigir (Comum/Articulado) é obrigatório.")
+    @Pattern(regexp = "Comum|Articulado", message = "O tipo de habilitação deve ser 'Comum' ou 'Articulado'.")
+    public String tipoHabilitacaoOnibus;
+// ... (Resto da classe MotoristaInputDTO)
 }

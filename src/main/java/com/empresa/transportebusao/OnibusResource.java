@@ -14,20 +14,17 @@ import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 @Tag(name = "Onibus")
-@Path("/api/v1/onibus") // 4.5. Versionamento via URL (V1)
+@Path("/api/v1/onibus") // Versionamento V1
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class OnibusResource {
-
-    // ⚠️ ATENÇÃO: Esta classe OnibusInputDTO DEVE estar em um arquivo separado: OnibusInputDTO.java
-    // (Incluindo os imports de Bean Validation @NotBlank, @Min, etc.)
 
     // --- GET (Lista todos) ---
     @GET
     @Operation(summary = "Lista todos os ônibus (V1)")
     public List<OnibusRepresentation> listAll() {
         return Onibus.<Onibus>listAll().stream()
-                .map(OnibusRepresentation::fromWithLinks)
+                .map(OnibusRepresentation::from)
                 .collect(Collectors.toList());
     }
 
@@ -41,17 +38,46 @@ public class OnibusResource {
         if (onibus == null) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
-        return Response.ok(OnibusRepresentation.fromWithLinks(onibus)).build();
+        return Response.ok(OnibusRepresentation.from(onibus)).build();
+    }
+
+    // --- NOVO GET DE BUSCA: Por Modelo ---
+    @GET
+    @Path("/search")
+    @Operation(summary = "Busca ônibus por nome do modelo (V1)")
+    public Response searchByModelo(
+            @QueryParam("modelo")
+            @Parameter(description = "Parte do nome do modelo do ônibus (ex: 'Mercedes-Benz').")
+            String modelo
+    ) {
+        // Se a query estiver vazia, retorna todos.
+        if (modelo == null || modelo.isBlank()) {
+            return Response.ok(listAll()).build();
+        }
+
+        // Busca parcial na coluna 'modelo', case-insensitive
+        List<Onibus> resultados = Onibus.list("LOWER(modelo) LIKE CONCAT('%', LOWER(?1), '%')", modelo);
+
+        if (resultados.isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity(Map.of("message", "Nenhum ônibus encontrado para o modelo: " + modelo))
+                    .build();
+        }
+
+        return Response.ok(resultados.stream()
+                        .map(OnibusRepresentation::from)
+                        .collect(Collectors.toList()))
+                .build();
     }
 
     // --- POST (Criação Idempotente e Versionada) ---
     @POST
     @Transactional
     @Operation(
-            summary = "Cria um novo ônibus (V1)",
+            summary = "Cadastra um novo ônibus (V1)",
             description = "A operação suporta Idempotência via cabeçalho 'Idempotency-Key'."
     )
-    @APIResponse(responseCode = "201", description = "Ônibus criado com sucesso.")
+    @APIResponse(responseCode = "201", description = "Ônibus cadastrado com sucesso.")
     @APIResponse(responseCode = "400", description = "Dados de entrada inválidos (Bean Validation).")
     @APIResponse(responseCode = "409", description = "Operação já processada com esta Idempotency-Key.")
     public Response create(
@@ -60,7 +86,7 @@ public class OnibusResource {
             @HeaderParam("Idempotency-Key") String idempotencyKey,
             @HeaderParam("X-API-Version") @DefaultValue("v1") String apiVersion) {
 
-        // 1. Simulação da Lógica de Idempotência (4.1)
+        // 1. Lógica de Idempotência
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             if (Onibus.find("idempotencyKey", idempotencyKey).firstResultOptional().isPresent()) {
                 return Response.status(409)
@@ -69,11 +95,12 @@ public class OnibusResource {
             }
         }
 
-        // 2. Mapeamento do DTO para o Modelo (CORREÇÃO DE ERRO)
+        // 2. Mapeamento e Persistência (Incluindo o novo campo tipoOnibus)
         Onibus novo = new Onibus();
         novo.modelo = input.modelo;
         novo.placa = input.placa;
         novo.capacidade = input.capacidade;
+        novo.tipoOnibus = input.tipoOnibus; // NOVO CAMPO
 
         // 3. Dados de Auditoria
         novo.apiVersion = apiVersion;
@@ -82,7 +109,7 @@ public class OnibusResource {
         novo.persist();
 
         return Response.status(Response.Status.CREATED)
-                .entity(OnibusRepresentation.fromWithLinks(novo))
+                .entity(OnibusRepresentation.from(novo))
                 .build();
     }
 
@@ -98,11 +125,13 @@ public class OnibusResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
+        // Atualização dos campos validados (Incluindo o novo campo tipoOnibus)
         o.modelo = dados.modelo;
         o.placa = dados.placa;
         o.capacidade = dados.capacidade;
+        o.tipoOnibus = dados.tipoOnibus; // NOVO CAMPO
 
-        return Response.ok(OnibusRepresentation.fromWithLinks(o)).build();
+        return Response.ok(OnibusRepresentation.from(o)).build();
     }
 
     // --- DELETE ---

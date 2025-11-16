@@ -14,7 +14,7 @@ import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 @Tag(name = "Viagens")
-@Path("/api/v1/viagens") // Requisito 4.5: Versionamento via URL (V1)
+@Path("/api/v1/viagens") // Versionamento V1
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class ViagemResource {
@@ -36,20 +36,41 @@ public class ViagemResource {
     public Response findById(@PathParam("id") Long id) {
         Viagem viagem = Viagem.findById(id);
         if (viagem == null) {
-            return Response.status(Response.Status.NOT_FOUND).build(); // Requisito 5: HTTP 404
+            return Response.status(Response.Status.NOT_FOUND).build();
         }
         return Response.ok(ViagemRepresentation.from(viagem)).build();
     }
+
+    // --- NOVO GET DE BUSCA: Por Origem ---
+    @GET
+    @Path("/search")
+    @Operation(summary = "Busca viagens por cidade de origem (V1)")
+    public List<ViagemRepresentation> searchByOrigem(
+            @QueryParam("origem")
+            @Parameter(description = "Nome da cidade de origem da viagem.")
+            String origem
+    ) {
+        if (origem == null || origem.isBlank()) {
+            return listAll();
+        }
+
+        // Busca de viagens onde a origem corresponde parcialmente (case-insensitive)
+        return Viagem.<Viagem>find("LOWER(origem) LIKE CONCAT('%', LOWER(?1), '%')", origem)
+                .stream()
+                .map(ViagemRepresentation::from)
+                .collect(Collectors.toList());
+    }
+
 
     // --- POST (Criação Idempotente e Versionada) ---
     @POST
     @Transactional
     @Operation(
             summary = "Agenda uma nova viagem (V1)",
-            description = "A operação suporta Idempotência e valida a existência do motorista/ônibus."
+            description = "Garante a compatibilidade entre o Motorista e o Ônibus antes de agendar."
     )
     @APIResponse(responseCode = "201", description = "Viagem agendada com sucesso.")
-    @APIResponse(responseCode = "400", description = "Dados ou IDs de relacionamento inválidos.")
+    @APIResponse(responseCode = "400", description = "Incompatibilidade Motorista/Ônibus ou dados inválidos.")
     @APIResponse(responseCode = "404", description = "Motorista ou Ônibus não encontrados.")
     @APIResponse(responseCode = "409", description = "Operação já processada com esta Idempotency-Key.")
     public Response create(
@@ -57,7 +78,7 @@ public class ViagemResource {
             @HeaderParam("Idempotency-Key") String idempotencyKey,
             @HeaderParam("X-API-Version") @DefaultValue("v1") String apiVersion) {
 
-        // 1. Lógica de Idempotência (Simulação via DB)
+        // 1. Lógica de Idempotência
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             if (Viagem.find("idempotencyKey", idempotencyKey).firstResultOptional().isPresent()) {
                 return Response.status(409)
@@ -66,7 +87,7 @@ public class ViagemResource {
             }
         }
 
-        // 2. Validação e Carregamento de Relacionamentos (Requisito 5: Tratamento de Erro 404)
+        // 2. Validação e Carregamento de Relacionamentos (Tratamento de Erro 404)
         Motorista motorista = Motorista.findById(input.motoristaId);
         if (motorista == null) {
             return Response.status(Response.Status.NOT_FOUND)
@@ -81,7 +102,15 @@ public class ViagemResource {
                     .build();
         }
 
-        // 3. Mapeamento e Persistência
+        // 3. REGRA DE NEGÓCIO CRÍTICA: Compatibilidade Motorista x Ônibus (400 Bad Request)
+        if (!motorista.tipoHabilitacaoOnibus.equals(onibus.tipoOnibus)) {
+            return Response.status(400)
+                    .entity(Map.of("message", "Incompatibilidade: O motorista está habilitado apenas para ônibus do tipo '"
+                            + motorista.tipoHabilitacaoOnibus + "', mas o ônibus é do tipo '" + onibus.tipoOnibus + "'."))
+                    .build();
+        }
+
+        // 4. Mapeamento e Persistência
         Viagem novaViagem = new Viagem();
         novaViagem.origem = input.origem;
         novaViagem.destino = input.destino;
@@ -89,7 +118,7 @@ public class ViagemResource {
         novaViagem.motorista = motorista;
         novaViagem.onibus = onibus;
 
-        // 4. Dados de Auditoria
+        // Dados de Auditoria
         novaViagem.apiVersion = apiVersion;
         novaViagem.idempotencyKey = idempotencyKey;
 
@@ -112,7 +141,6 @@ public class ViagemResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        // 1. Carregamento de Relacionamentos (simples, sem checagem de 404 completa para simplificar o PUT)
         Motorista motorista = Motorista.findById(dados.motoristaId);
         Onibus onibus = Onibus.findById(dados.onibusId);
 
@@ -122,7 +150,14 @@ public class ViagemResource {
                     .build();
         }
 
-        // 2. Atualização dos campos validados
+        // Aplica a mesma REGRA DE NEGÓCIO na atualização (PUT)
+        if (!motorista.tipoHabilitacaoOnibus.equals(onibus.tipoOnibus)) {
+            return Response.status(400)
+                    .entity(Map.of("message", "Incompatibilidade: O motorista não pode dirigir este tipo de ônibus."))
+                    .build();
+        }
+
+        // Atualização dos campos validados
         v.origem = dados.origem;
         v.destino = dados.destino;
         v.dataPartida = dados.dataPartida;
