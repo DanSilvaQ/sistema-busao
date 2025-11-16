@@ -1,77 +1,31 @@
-# sistema-busao
+# Sistema de Gerenciamento de Transporte Rodoviário (Microservice API - v1)
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+## 🚌 Descrição do Projeto
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+Este projeto implementa uma API RESTful para o gerenciamento de recursos essenciais em uma empresa de transporte rodoviário (Motoristas, Ônibus e Viagens). Foi desenvolvido utilizando **Java** e o *framework* **Quarkus**, focado em alta performance e arquitetura de microserviços.
 
-## Running the application in dev mode
+### Funcionalidades e Requisitos Avançados Implementados:
 
-You can run your application in dev mode that enables live coding using:
+1.  **Versionamento de API (V1):** Todos os *endpoints* utilizam o prefixo `/api/v1/...`.
+2.  **Idempotência:** A criação de recursos (`POST`) é protegida pelo cabeçalho `Idempotency-Key` para prevenir duplicação de requisições.
+3.  **Validação de Dados:** Utilização de Bean Validation (`@Valid`, `@NotNull`, `@Pattern`) com tratamento de erro HTTP 400 (Bad Request).
+4.  **Tratamento de Relacionamentos:** Checagem da existência de chaves estrangeiras (`Motorista` e `Ônibus`) com retorno HTTP 404 (Not Found).
+5.  **Regra de Negócio Crucial (Viagem):** A API impede a criação de uma viagem se o `Motorista.tipoHabilitacaoOnibus` for incompatível com o `Onibus.tipoOnibus`.
+6.  **Filtros de Busca Específicos:** Implementação de *endpoints* `/search` para buscas detalhadas.
 
-```shell script
-./mvnw quarkus:dev
-```
+---
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+## 🛠️ Instruções Detalhadas para Execução
 
-## Packaging and running the application
+### Pré-requisitos
 
-The application can be packaged using:
+* **Java 17+** (JDK)
+* **Maven** (3.8+)
+* **Docker** (Para rodar o banco de dados PostgreSQL)
 
-```shell script
-./mvnw package
-```
+### 1. Inicialização do Banco de Dados (PostgreSQL via Docker)
 
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
+Recomendamos usar o Docker para iniciar rapidamente uma instância de banco de dados.
 
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
-
-If you want to build an _über-jar_, execute the following command:
-
-```shell script
-./mvnw package -Dquarkus.package.jar.type=uber-jar
-```
-
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
-
-## Creating a native executable
-
-You can create a native executable using:
-
-```shell script
-./mvnw package -Dnative
-```
-
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
-
-```shell script
-./mvnw package -Dnative -Dquarkus.native.container-build=true
-```
-
-You can then execute your native executable with: `./target/sistema-busao-1.0.0-SNAPSHOT-runner`
-
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/maven-tooling>.
-
-## Related Guides
-
-- JDBC Driver - H2 ([guide](https://quarkus.io/guides/datasource)): Connect to the H2 database via JDBC
-- Hibernate ORM with Panache ([guide](https://quarkus.io/guides/hibernate-orm-panache)): Simplify your persistence code for Hibernate ORM via the active record or the repository pattern
-- RESTEasy Classic ([guide](https://quarkus.io/guides/resteasy)): REST endpoint framework implementing Jakarta REST and more
-
-## Provided Code
-
-### Hibernate ORM
-
-Create your first JPA entity
-
-[Related guide section...](https://quarkus.io/guides/hibernate-orm)
-
-[Related Hibernate with Panache section...](https://quarkus.io/guides/hibernate-orm-panache)
-
-
-### RESTEasy JAX-RS
-
-Easily start your RESTful Web Services
-
-[Related guide section...](https://quarkus.io/guides/getting-started#the-jax-rs-resources)
+```bash
+docker run --name busao-db -e POSTGRES_USER=appuser -e POSTGRES_PASSWORD=apppass -e POSTGRES_DB=busaodb -p 5432:5432 -d postgres:15
