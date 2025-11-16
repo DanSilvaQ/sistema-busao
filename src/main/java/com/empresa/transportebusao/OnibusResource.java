@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
-@Tag(name = "Ônibus")
+@Tag(name = "Onibus")
 @Path("/api/v1/onibus")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
