@@ -10,7 +10,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 @ApplicationPath("/") // Define o caminho base da sua API
 @OpenAPIDefinition(
         info = @Info(
-                title = "Sistema de Gestão de Transportes (API Busão)",
+                title = "Metropole ts",
                 version = "1.0.0",
                 description = "API RESTful para gerenciar motoristas, ônibus e viagens, incluindo suporte HATEOAS.",
                 contact = @Contact(
