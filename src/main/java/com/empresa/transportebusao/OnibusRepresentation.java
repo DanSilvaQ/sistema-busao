@@ -11,8 +11,7 @@ public class OnibusRepresentation {
     public String placa;
     public Integer capacidade;
 
-    // 🔹 Novos campos
-    public String idempotencyKey;
+    // 4.5. Versionamento (Informado ao cliente)
     public String apiVersion;
 
     public Map<String, Link> _links;
@@ -24,13 +23,13 @@ public class OnibusRepresentation {
         rep.placa = o.placa;
         rep.capacidade = o.capacidade;
         rep.apiVersion = o.apiVersion;
-        rep.idempotencyKey = o.idempotencyKey;
         return rep;
     }
 
     public static OnibusRepresentation fromWithLinks(Onibus o) {
         OnibusRepresentation rep = from(o);
         if (o.id != null) {
+            // Incorpora a versão correta do recurso nos links (HATEOAS)
             String base = "/api/" + o.apiVersion + "/onibus/" + o.id;
             rep._links = Map.of(
                     "self", new Link(base, "GET"),
@@ -39,5 +38,16 @@ public class OnibusRepresentation {
             );
         }
         return rep;
+    }
+
+    // Classe auxiliar de Link
+    public static class Link {
+        public String href;
+        public String method;
+
+        public Link(String href, String method) {
+            this.href = href;
+            this.method = method;
+        }
     }
 }

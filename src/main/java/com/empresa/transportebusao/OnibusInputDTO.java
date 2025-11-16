@@ -1,36 +1,27 @@
 package com.empresa.transportebusao;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
-@Entity
-public class Onibus extends PanacheEntity {
+@Schema(name = "OnibusInput", description = "Dados de entrada necessários para criar ou atualizar um Ônibus")
+public class OnibusInputDTO {
 
-    // 5. Validações com Bean Validation
+    // 5. Validação: Garante que o modelo não é nulo nem vazio
     @NotBlank(message = "O modelo do ônibus não pode ser vazio.")
     public String modelo;
 
+    // 5. Validação: Garante que a placa segue o padrão e não é vazia
     @NotBlank(message = "A placa do ônibus não pode ser vazia.")
-    @Column(unique = true)
     @Pattern(regexp = "[A-Z]{3}[0-9A-Z]{4}", message = "A placa deve seguir o padrão (ex: AAA1B23).")
     public String placa;
 
+    // 5. Validação: Garante que a capacidade é informada e está dentro dos limites físicos
     @NotNull(message = "A capacidade do ônibus deve ser informada.")
     @Min(value = 10, message = "A capacidade mínima deve ser 10 passageiros.")
     @Max(value = 150, message = "A capacidade máxima deve ser 150 passageiros.")
     public Integer capacidade;
-
-    // 4.1. Idempotência (Campo para simulação de verificação via DB)
-    @Column(unique = true)
-    public String idempotencyKey;
-
-    // 4.5. Versionamento (Para auditoria no registro)
-    @Column(name = "api_version")
-    public String apiVersion = "v1";
 }

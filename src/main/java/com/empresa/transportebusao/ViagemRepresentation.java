@@ -1,59 +1,31 @@
 package com.empresa.transportebusao;
 
 import java.time.LocalDateTime;
-import java.util.Map;
-
-import com.empresa.transportebusao.Link;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
-@Schema(name = "ViagemRepresentation", description = "Representação da Viagem com HATEOAS e versão da API")
+@Schema(name = "ViagemRepresentation", description = "Representação de uma Viagem")
 public class ViagemRepresentation {
 
     public Long id;
-    public Long motoristaId;
-    public String motoristaNome;
     public String origem;
     public String destino;
     public LocalDateTime dataPartida;
-    public StatusViagem status;
-
-    // NOVO: informações extras
+    public String motoristaNome; // Exibe o nome em vez do ID
+    public String onibusPlaca;   // Exibe a placa em vez do ID
     public String apiVersion;
-    public String idempotencyKey;
 
-    public Map<String, Link> _links;
-
-    private ViagemRepresentation() {}
-
-    public static ViagemRepresentation from(Viagem viagem) {
+    public static ViagemRepresentation from(Viagem v) {
         ViagemRepresentation rep = new ViagemRepresentation();
-        rep.id = viagem.id;
+        rep.id = v.id;
+        rep.origem = v.origem;
+        rep.destino = v.destino;
+        rep.dataPartida = v.dataPartida;
 
-        if (viagem.motorista != null) {
-            rep.motoristaId = viagem.motorista.id;
-            rep.motoristaNome = viagem.motorista.nomeCompleto;
-        }
+        // Mapeamento de FKs (assumindo que as entidades estão carregadas)
+        rep.motoristaNome = v.motorista != null ? v.motorista.nome : "N/A";
+        rep.onibusPlaca = v.onibus != null ? v.onibus.placa : "N/A";
 
-        rep.origem = viagem.origem;
-        rep.destino = viagem.destino;
-        rep.dataPartida = viagem.dataPartida;
-        rep.status = viagem.status;
-
-        rep.apiVersion = viagem.apiVersion;
-        rep.idempotencyKey = viagem.idempotencyKey;
-        return rep;
-    }
-
-    public static ViagemRepresentation fromWithLinks(Viagem viagem) {
-        ViagemRepresentation rep = from(viagem);
-        if (viagem.id != null) {
-            String uri = "/api/" + viagem.apiVersion + "/viagens/" + viagem.id;
-            rep._links = Map.of(
-                    "self", new Link(uri, "GET"),
-                    "update", new Link(uri, "PUT"),
-                    "delete", new Link(uri, "DELETE")
-            );
-        }
+        rep.apiVersion = v.apiVersion;
         return rep;
     }
 }
