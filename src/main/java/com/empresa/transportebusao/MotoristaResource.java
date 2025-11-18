@@ -9,30 +9,134 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.eclipse.microprofile.openapi.annotations.headers.Header;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
-@Tag(name = "Motoristas") // Tag única para evitar duplicação no Swagger
-@Path("/api/v1/motoristas") // Requisito 4.5: Versionamento V1
+@Tag(name = "Motoristas")
+@Path("/api/v1/motoristas")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class MotoristaResource {
 
     // --- GET (Lista todos) ---
     @GET
-    @Operation(summary = "Lista todos os motoristas (V1)")
+    @Operation(
+            summary = "Lista todos os motoristas (V1)",
+            description = "Lista todos os motoristas cadastrados. Este endpoint está sujeito a rate limiting (10 requisições por hora)."
+    )
+    @APIResponse(
+            responseCode = "200",
+            description = "Lista de motoristas retornada com sucesso",
+            headers = {
+                    @Header(
+                            name = "X-RateLimit-Limit",
+                            description = "Número máximo de requisições permitidas por hora",
+                            schema = @Schema(implementation = Integer.class, example = "10")
+                    ),
+                    @Header(
+                            name = "X-RateLimit-Remaining",
+                            description = "Número de requisições restantes na janela atual",
+                            schema = @Schema(implementation = Integer.class, example = "9")
+                    ),
+                    @Header(
+                            name = "X-RateLimit-Reset",
+                            description = "Timestamp Unix (em segundos) quando o limite será resetado",
+                            schema = @Schema(implementation = Long.class, example = "1732305600")
+                    )
+            },
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = MotoristaRepresentation.class, type = SchemaType.ARRAY)
+            )
+    )
+    @APIResponse(
+            responseCode = "429",
+            description = "Rate limit excedido. Você fez muitas requisições em um curto período.",
+            headers = {
+                    @Header(
+                            name = "X-RateLimit-Limit",
+                            description = "Número máximo de requisições permitidas por hora",
+                            schema = @Schema(implementation = Integer.class, example = "10")
+                    ),
+                    @Header(
+                            name = "X-RateLimit-Remaining",
+                            description = "Número de requisições restantes (0 quando bloqueado)",
+                            schema = @Schema(implementation = Integer.class, example = "0")
+                    ),
+                    @Header(
+                            name = "X-RateLimit-Reset",
+                            description = "Timestamp Unix quando o limite será resetado",
+                            schema = @Schema(implementation = Long.class, example = "1732305600")
+                    ),
+                    @Header(
+                            name = "Retry-After",
+                            description = "Número de segundos até que você possa fazer uma nova requisição",
+                            schema = @Schema(implementation = Long.class, example = "3540")
+                    )
+            },
+            content = @Content(
+                    mediaType = "application/json",
+                    example = "{\"error\": \"Too Many Requests\", \"message\": \"Rate limit exceeded. Try again later.\"}"
+            )
+    )
     public List<MotoristaRepresentation> listAll() {
         return Motorista.<Motorista>listAll().stream()
-                .map(MotoristaRepresentation::from) // Sem HATEOAS
+                .map(MotoristaRepresentation::from)
                 .collect(Collectors.toList());
     }
 
     // --- GET por ID ---
     @GET
     @Path("/{id}")
-    @Operation(summary = "Busca um motorista por ID (V1)")
-    @APIResponse(responseCode = "404", description = "Motorista não encontrado.")
+    @Operation(
+            summary = "Busca um motorista por ID (V1)",
+            description = "Busca um motorista específico por ID. Sujeito a rate limiting (10 requisições/hora)."
+    )
+    @APIResponse(
+            responseCode = "200",
+            description = "Motorista encontrado com sucesso",
+            headers = {
+                    @Header(
+                            name = "X-RateLimit-Limit",
+                            description = "Limite máximo de requisições",
+                            schema = @Schema(implementation = Integer.class, example = "10")
+                    ),
+                    @Header(
+                            name = "X-RateLimit-Remaining",
+                            description = "Requisições restantes",
+                            schema = @Schema(implementation = Integer.class, example = "8")
+                    ),
+                    @Header(
+                            name = "X-RateLimit-Reset",
+                            description = "Timestamp de reset",
+                            schema = @Schema(implementation = Long.class, example = "1732305600")
+                    )
+            },
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = MotoristaRepresentation.class)
+            )
+    )
+    @APIResponse(
+            responseCode = "404",
+            description = "Motorista não encontrado."
+    )
+    @APIResponse(
+            responseCode = "429",
+            description = "Rate limit excedido",
+            headers = {
+                    @Header(name = "Retry-After", schema = @Schema(implementation = Long.class, example = "3540"))
+            },
+            content = @Content(
+                    mediaType = "application/json",
+                    example = "{\"error\": \"Too Many Requests\", \"message\": \"Rate limit exceeded. Try again later.\"}"
+            )
+    )
     public Response findById(@PathParam("id") Long id) {
         Motorista motorista = Motorista.findById(id);
         if (motorista == null) {
@@ -42,10 +146,36 @@ public class MotoristaResource {
     }
 
     // --- GET (Busca por Tipo de Ônibus Habilitado) ---
-    // Este método contém a correção para a busca por "Comum" ou "Articulado"
     @GET
     @Path("/search")
-    @Operation(summary = "Busca motoristas habilitados para um tipo específico de ônibus (Comum ou Articulado) (V1)")
+    @Operation(
+            summary = "Busca motoristas habilitados para um tipo específico de ônibus (Comum ou Articulado) (V1)",
+            description = "Pesquisa motoristas por tipo de habilitação. Sujeito a rate limiting (10 requisições/hora)."
+    )
+    @APIResponse(
+            responseCode = "200",
+            description = "Resultados da busca retornados com sucesso",
+            headers = {
+                    @Header(name = "X-RateLimit-Limit", schema = @Schema(implementation = Integer.class, example = "10")),
+                    @Header(name = "X-RateLimit-Remaining", schema = @Schema(implementation = Integer.class, example = "7")),
+                    @Header(name = "X-RateLimit-Reset", schema = @Schema(implementation = Long.class, example = "1732305600"))
+            },
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = MotoristaRepresentation.class, type = SchemaType.ARRAY)
+            )
+    )
+    @APIResponse(
+            responseCode = "429",
+            description = "Rate limit excedido",
+            headers = {
+                    @Header(name = "Retry-After", schema = @Schema(implementation = Long.class, example = "3540"))
+            },
+            content = @Content(
+                    mediaType = "application/json",
+                    example = "{\"error\": \"Too Many Requests\", \"message\": \"Rate limit exceeded. Try again later.\"}"
+            )
+    )
     public List<MotoristaRepresentation> searchByTipoHabilitacao(
             @QueryParam("tipo")
             @Parameter(description = "Tipo de ônibus para o qual o motorista está habilitado (Comum ou Articulado).")
@@ -55,16 +185,12 @@ public class MotoristaResource {
             return listAll();
         }
 
-        // 1. Normalização da String de Entrada: Garante que a primeira letra seja maiúscula (Ex: comum -> Comum)
         String tipoNormalizado = tipo.substring(0, 1).toUpperCase() + tipo.substring(1).toLowerCase();
 
-        // 2. Validação estrita dos termos permitidos
         if (!tipoNormalizado.equals("Comum") && !tipoNormalizado.equals("Articulado")) {
             return List.of();
         }
 
-        // 3. Busca exata no Panache
-        // Usa a busca exata (find) com o valor normalizado
         return Motorista.<Motorista>find("tipoHabilitacaoOnibus", tipoNormalizado)
                 .stream()
                 .map(MotoristaRepresentation::from)
@@ -87,7 +213,6 @@ public class MotoristaResource {
             @HeaderParam("Idempotency-Key") String idempotencyKey,
             @HeaderParam("X-API-Version") @DefaultValue("v1") String apiVersion) {
 
-        // 1. Lógica de Idempotência
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             if (Motorista.find("idempotencyKey", idempotencyKey).firstResultOptional().isPresent()) {
                 return Response.status(409)
@@ -96,14 +221,12 @@ public class MotoristaResource {
             }
         }
 
-        // 2. Mapeamento e Persistência (Incluindo o novo campo)
         Motorista novo = new Motorista();
         novo.nome = input.nome;
         novo.cnh = input.cnh;
         novo.cpf = input.cpf;
-        novo.tipoHabilitacaoOnibus = input.tipoHabilitacaoOnibus; // NOVO CAMPO
+        novo.tipoHabilitacaoOnibus = input.tipoHabilitacaoOnibus;
 
-        // 3. Dados de Auditoria
         novo.apiVersion = apiVersion;
         novo.idempotencyKey = idempotencyKey;
 
@@ -118,19 +241,41 @@ public class MotoristaResource {
     @PUT
     @Path("/{id}")
     @Transactional
-    @Operation(summary = "Atualiza um motorista existente (V1)")
+    @Operation(
+            summary = "Atualiza um motorista existente (V1)",
+            description = "Atualiza os dados de um motorista. Sujeito a rate limiting (10 requisições/hora)."
+    )
+    @APIResponse(
+            responseCode = "200",
+            description = "Motorista atualizado com sucesso",
+            headers = {
+                    @Header(name = "X-RateLimit-Limit", schema = @Schema(implementation = Integer.class, example = "10")),
+                    @Header(name = "X-RateLimit-Remaining", schema = @Schema(implementation = Integer.class, example = "6")),
+                    @Header(name = "X-RateLimit-Reset", schema = @Schema(implementation = Long.class, example = "1732305600"))
+            },
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = MotoristaRepresentation.class)
+            )
+    )
     @APIResponse(responseCode = "404", description = "Motorista não encontrado.")
+    @APIResponse(
+            responseCode = "429",
+            description = "Rate limit excedido",
+            headers = {
+                    @Header(name = "Retry-After", schema = @Schema(implementation = Long.class, example = "3540"))
+            }
+    )
     public Response update(@PathParam("id") Long id, @Valid MotoristaInputDTO dados) {
         Motorista m = Motorista.findById(id);
         if (m == null) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        // Atualização dos campos validados (Incluindo o novo campo)
         m.nome = dados.nome;
         m.cnh = dados.cnh;
         m.cpf = dados.cpf;
-        m.tipoHabilitacaoOnibus = dados.tipoHabilitacaoOnibus; // NOVO CAMPO
+        m.tipoHabilitacaoOnibus = dados.tipoHabilitacaoOnibus;
 
         return Response.ok(MotoristaRepresentation.from(m)).build();
     }
@@ -139,9 +284,27 @@ public class MotoristaResource {
     @DELETE
     @Path("/{id}")
     @Transactional
-    @Operation(summary = "Remove um motorista por ID (V1)")
-    @APIResponse(responseCode = "204", description = "Remoção bem-sucedida.")
+    @Operation(
+            summary = "Remove um motorista por ID (V1)",
+            description = "Exclui um motorista do sistema. Sujeito a rate limiting (10 requisições/hora)."
+    )
+    @APIResponse(
+            responseCode = "204",
+            description = "Remoção bem-sucedida.",
+            headers = {
+                    @Header(name = "X-RateLimit-Limit", schema = @Schema(implementation = Integer.class, example = "10")),
+                    @Header(name = "X-RateLimit-Remaining", schema = @Schema(implementation = Integer.class, example = "5")),
+                    @Header(name = "X-RateLimit-Reset", schema = @Schema(implementation = Long.class, example = "1732305600"))
+            }
+    )
     @APIResponse(responseCode = "404", description = "Motorista não encontrado.")
+    @APIResponse(
+            responseCode = "429",
+            description = "Rate limit excedido",
+            headers = {
+                    @Header(name = "Retry-After", schema = @Schema(implementation = Long.class, example = "3540"))
+            }
+    )
     public Response delete(@PathParam("id") Long id) {
         boolean deleted = Motorista.deleteById(id);
         return deleted ? Response.noContent().build() : Response.status(Response.Status.NOT_FOUND).build();
