@@ -20,7 +20,7 @@ public class RateLimitFilter implements ContainerRequestFilter, ContainerRespons
 
     // Configurações: 10 requisições por hora por IP
     private static final int MAX_REQUESTS = 10;
-    private static final long WINDOW_SECONDS = 3600; // 1 hora
+    private static final long WINDOW_SECONDS = 60; // 1 hora
 
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException {
